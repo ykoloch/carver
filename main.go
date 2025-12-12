@@ -18,9 +18,9 @@ var (
 )
 
 func main() {
-	flag.StringVar(&output, "output", DEFAULT_OUTPUT_DIR, fmt.Sprintf("path to the output directory; default is %q", DEFAULT_OUTPUT_DIR))
+	flag.StringVar(&output, "output", DEFAULT_OUTPUT_DIR, "path to the output directory")
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
-	flag.UintVar(&workers, "workers", DEFAULT_WORKERS, fmt.Sprintf("number of workers; default is %d", DEFAULT_WORKERS))
+	flag.UintVar(&workers, "workers", DEFAULT_WORKERS, "number of workers")
 	flag.StringVar(&device, "device", "", "path to the device to be scanned")
 
 	flag.Usage = func() {
