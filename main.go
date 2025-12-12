@@ -18,16 +18,23 @@ var (
 )
 
 func main() {
-	output = *flag.String("output", DEFAULT_OUTPUT_DIR, fmt.Sprintf("path to the output directory; default is %q", DEFAULT_OUTPUT_DIR))
-	device = *flag.String("device", "", "path to the device to be scanned")
-	if len(device) < 1 {
-		os.Stderr.WriteString("error: the device should be specified")
-		os.Exit(-1)
+	flag.StringVar(&output, "output", DEFAULT_OUTPUT_DIR, fmt.Sprintf("path to the output directory; default is %q", DEFAULT_OUTPUT_DIR))
+	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
+	flag.UintVar(&workers, "workers", DEFAULT_WORKERS, fmt.Sprintf("number of workers; default is %d", DEFAULT_WORKERS))
+	flag.StringVar(&device, "device", "", "path to the device to be scanned")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Carver - File recovery tool\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExample:\n")
+		fmt.Fprintf(os.Stderr, "  %s -device /dev/sdb1 -output ./recovered\n", os.Args[0])
 	}
-	verbose = *flag.Bool("verbose", false, "verbose mode")
-	workers = *flag.Uint("workers", DEFAULT_WORKERS, "number of workers")
 
 	flag.Parse()
-
-	println(output)
+	if device == "" {
+		flag.Usage()
+		os.Exit(-1)
+	}
 }
