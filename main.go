@@ -6,11 +6,6 @@ import (
 	"os"
 )
 
-const (
-	DEFAULT_OUTPUT_DIR = "./recovered"
-	DEFAULT_WORKERS    = 4
-)
-
 var (
 	device, output string
 	verbose        bool
@@ -35,6 +30,11 @@ func main() {
 	flag.Parse()
 	if device == "" {
 		flag.Usage()
+		os.Exit(-1)
+	}
+
+	if err := scanPath(device); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(-1)
 	}
 }
