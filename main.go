@@ -33,7 +33,7 @@ func main() {
 		os.Exit(-1)
 	}
 
-	if err := scanPath(device); err != nil {
+	if err := scan(device); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(-1)
 	}

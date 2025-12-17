@@ -1,24 +1,35 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
+
+	"golang.org/x/sys/unix"
 )
 
-func scanPath(path string) error {
+func scan(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("can not open %v: %w", path, err)
 	}
 	defer f.Close()
 
-	fInfo, err := f.Stat()
-	if err != nil {
-		return fmt.Errorf("can not get file stats %v: %w", f.Name(), err)
-	}
-	println("the device size is", fInfo.Size())
+	// fInfo, err := f.Stat()
+	// if err != nil {
+	// 	return fmt.Errorf("can not get file stats %v: %w", f.Name(), err)
+	// }
+	// println("the device size is", fInfo.Size())
 
+	size, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKGETSIZE)
+	if err != nil {
+		return fmt.Errorf("can not get size of %v: %w", path, err)
+	}
+	println("the device size is", size)
+
+	// it's just a babystep just to check if we can work with
+	// the data accessed
 	startData, err := checkDevice(f)
 	if err != nil {
 		return fmt.Errorf("can not read the device %v: %w", f.Name(), err)
@@ -32,6 +43,13 @@ func scanPath(path string) error {
 				fmt.Println()
 			}
 		}
+	}
+
+	i := bytes.Index(startData, JPEG_SIGNATURE)
+	if i >= 0 {
+		println("JPEG sig found at", i)
+	} else {
+		println("no JPEG sig found")
 	}
 
 	return nil
