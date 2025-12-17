@@ -19,12 +19,12 @@ func main() {
 	flag.StringVar(&device, "device", "", "path to the device to be scanned")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Carver - File recovery tool\n\n")
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "Options:\n")
+		_, _ = fmt.Fprintf(os.Stderr, "Carver - File recovery tool\n\n")
+		_, _ = fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		_, _ = fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExample:\n")
-		fmt.Fprintf(os.Stderr, "  %s -device /dev/sdb1 -output ./recovered\n", os.Args[0])
+		_, _ = fmt.Fprintf(os.Stderr, "\nExample:\n")
+		_, _ = fmt.Fprintf(os.Stderr, "  %s -device /dev/sdb1 -output ./recovered\n", os.Args[0])
 	}
 
 	flag.Parse()
@@ -34,7 +34,7 @@ func main() {
 	}
 
 	if err := scan(device); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(-1)
 	}
 }
