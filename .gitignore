@@ -24,8 +24,8 @@ carver
 .DS_Store
 Thumbs.db
 
-# Test coverage reports
 coverage.out
+*cov
 
 # Go-specific files
 *.out

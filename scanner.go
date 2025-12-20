@@ -22,11 +22,13 @@ func scan(path string) error {
 	// }
 	// println("the device size is", fInfo.Size())
 
-	size, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKGETSIZE)
+	// get number of device's blocks
+	blocks, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKGETSIZE)
 	if err != nil {
 		return fmt.Errorf("can not get size of %v: %w", path, err)
 	}
-	println("the device size is", size)
+	devSize := blocks * SECTOR_SIZE
+	println("the device size is", devSize, "bytes")
 
 	// it's just a babystep just to check if we can work with
 	// the data accessed
