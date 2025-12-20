@@ -16,12 +16,6 @@ func scan(path string) error {
 	}
 	defer f.Close()
 
-	// fInfo, err := f.Stat()
-	// if err != nil {
-	// 	return fmt.Errorf("can not get file stats %v: %w", f.Name(), err)
-	// }
-	// println("the device size is", fInfo.Size())
-
 	// get number of device's blocks
 	blocks, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKGETSIZE)
 	if err != nil {
@@ -47,11 +41,22 @@ func scan(path string) error {
 		}
 	}
 
-	i := bytes.Index(startData, JPEG_SIGNATURE)
-	if i >= 0 {
-		println("JPEG sig found at", i)
-	} else {
-		println("no JPEG sig found")
+	sr := io.NewSectionReader(f, 0, int64(devSize))
+	buf := make([]byte, CHUNK_SIZE)
+	var offset int64
+	for {
+		_, err := sr.ReadAt(buf, offset)
+		if err != nil {
+			if err == io.EOF {
+				println("##### EOF")
+				break
+			}
+			return fmt.Errorf("can not read chunk %d: %w", offset, err)
+		}
+		if i := bytes.Index(buf, JPEG_SIGNATURE); i >= 0 {
+			println("found jpeg sig at", offset+int64(i))
+		}
+		offset += CHUNK_SIZE
 	}
 
 	return nil
