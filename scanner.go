@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/sys/unix"
 )
@@ -54,9 +55,34 @@ func scan(path string) error {
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
 		if i := bytes.Index(buf, JPEG_SIGNATURE); i >= 0 {
-			println("found jpeg sig at", offset+int64(i))
+			headPos := offset + int64(i)
+			println("found jpeg sig at", headPos)
+			// todo: goroutine
+			extract(buf, headPos)
 		}
 		offset += CHUNK_SIZE
+	}
+
+	return nil
+}
+
+// jpeg, one chunk for now; it's just a POC
+func extract(data []byte, headPos int64) error {
+	fName := filepath.Join(output, "1.jpeg")
+	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// search for jpeg tail
+	if i := bytes.Index(data[headPos:], JPEG_TAIL); i < 0 {
+		return nil
+	} else {
+		_, err = f.Write(data[headPos:i])
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
