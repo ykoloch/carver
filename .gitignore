@@ -33,3 +33,6 @@ coverage.out
 
 # go-sec report
 *.sarif
+
+# testing output directory
+recovered

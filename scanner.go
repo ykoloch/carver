@@ -54,11 +54,14 @@ func scan(path string) error {
 			}
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
-		if i := bytes.Index(buf, JPEG_SIGNATURE); i >= 0 {
-			headPos := offset + int64(i)
-			println("found jpeg sig at", headPos)
+		// ok, jpeg signature found, get its POSITION inside given chunk
+		// todo: multiple headers in the same chunk
+		if headPosition := bytes.Index(buf, JPEG_SIGNATURE); headPosition >= 0 {
+			// will work when we implement processing when the file spreads
+			// beyond current chunk
+			//headPos := offset + int64(headPosition)
 			// todo: goroutine
-			extract(buf, headPos)
+			extract(buf[headPosition:], int64(headPosition))
 		}
 		offset += CHUNK_SIZE
 	}
@@ -68,18 +71,20 @@ func scan(path string) error {
 
 // jpeg, one chunk for now; it's just a POC
 func extract(data []byte, headPos int64) error {
+	// todo: what if the target directory doesn't exist
 	fName := filepath.Join(output, "1.jpeg")
-	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 644)
+	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
 	// search for jpeg tail
-	if i := bytes.Index(data[headPos:], JPEG_TAIL); i < 0 {
+	if tailPosition := bytes.Index(data, JPEG_TAIL); tailPosition < 0 {
 		return nil
 	} else {
-		_, err = f.Write(data[headPos:i])
+		// tailPosition+2 - include the tail bytes themselves
+		_, err = f.Write(data[:tailPosition+2])
 		if err != nil {
 			return err
 		}
