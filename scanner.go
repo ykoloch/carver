@@ -48,6 +48,7 @@ func scan(path string) error {
 	sr := io.NewSectionReader(f, 0, int64(devSize))
 	buf := make([]byte, CHUNK_SIZE)
 	var offset int64
+	// process the data chunk by chunk
 	for {
 		_, err := sr.ReadAt(buf, offset)
 		if err != nil {
@@ -57,26 +58,37 @@ func scan(path string) error {
 			}
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
-		// ok, jpeg signature found, get its POSITION inside given chunk
+
 		// todo: multiple headers in the same chunk
-		if headPosition := bytes.Index(buf, JPEG_SIGNATURE); headPosition >= 0 {
-			// will work when we implement processing when the file spreads
-			// beyond current chunk
-			//headPos := offset + int64(headPosition)
-			// todo: goroutine, log error
-			extract(buf[headPosition:])
-		}
+		// will work when we implement processing when the file spreads
+		// beyond current chunk
+		//headPos := offset + int64(headPosition)
+		// todo: goroutine, log error
+		processJPEG(buf)
+		// todo: process png, pdf etc.
+
 		offset += CHUNK_SIZE
 	}
 
 	return nil
 }
 
+func processJPEG(chunk []byte) {
+	// todo: multiple (JPEG) files in a chunk?
+	for _, sig := range JPEG_SIGS {
+		if headPos := bytes.Index(chunk, sig); headPos >= 0 {
+			// todo: log error
+			_ = extractJPEG(chunk[headPos:])
+			break
+		}
+	}
+}
+
 // jpeg, one chunk for now; it's just a POC
-func extract(data []byte) error {
+func extractJPEG(data []byte) error {
 	// todo: what if the target directory doesn't exist
 	num := fileCount.Add(1)
-	fCount := fmt.Sprintf("%d.jpeg", num)
+	fCount := fmt.Sprintf("%d.%s", num, JPEG_EXT)
 	fName := filepath.Join(output, fCount)
 
 	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 0644)
