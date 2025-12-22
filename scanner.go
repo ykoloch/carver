@@ -63,8 +63,8 @@ func scan(path string) error {
 			// will work when we implement processing when the file spreads
 			// beyond current chunk
 			//headPos := offset + int64(headPosition)
-			// todo: goroutine
-			extract(buf[headPosition:], int64(headPosition))
+			// todo: goroutine, log error
+			extract(buf[headPosition:])
 		}
 		offset += CHUNK_SIZE
 	}
@@ -73,7 +73,7 @@ func scan(path string) error {
 }
 
 // jpeg, one chunk for now; it's just a POC
-func extract(data []byte, headPos int64) error {
+func extract(data []byte) error {
 	// todo: what if the target directory doesn't exist
 	num := fileCount.Add(1)
 	fCount := fmt.Sprintf("%d.jpeg", num)
