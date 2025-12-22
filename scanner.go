@@ -6,9 +6,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"golang.org/x/sys/unix"
 )
+
+var fileCount atomic.Int32
 
 func scan(path string) error {
 	f, err := os.Open(path)
@@ -72,7 +75,10 @@ func scan(path string) error {
 // jpeg, one chunk for now; it's just a POC
 func extract(data []byte, headPos int64) error {
 	// todo: what if the target directory doesn't exist
-	fName := filepath.Join(output, "1.jpeg")
+	num := fileCount.Add(1)
+	fCount := fmt.Sprintf("%d.jpeg", num)
+	fName := filepath.Join(output, fCount)
+
 	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -80,6 +86,7 @@ func extract(data []byte, headPos int64) error {
 	defer f.Close()
 
 	// search for jpeg tail
+	//if tailPosition := bytes.LastIndex(data, JPEG_TAIL); tailPosition < 0 {
 	if tailPosition := bytes.Index(data, JPEG_TAIL); tailPosition < 0 {
 		return nil
 	} else {
