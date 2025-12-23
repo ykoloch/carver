@@ -88,26 +88,30 @@ func scan(path string) error {
 
 // processJPEG
 func processJPEG(chunk []byte) {
-	// no jpegs in given chunk
-	// but what if jpeg spawns 2 chunks?
-	if bytes.Index(chunk, JPEG_TAIL) < 0 {
-		return
-	}
-
 	for _, sig := range JPEG_SIGS {
-		headerPos := bytes.Index(chunk, sig)
-		if headerPos < 0 {
-			return
-		} else {
-			tailPosition := bytes.Index(chunk[headerPos:], JPEG_TAIL)
-			if tailPosition < 0 {
-				// todo: the tail in the next chunk?
-				return
+		searchOffset := 0
+		for searchOffset < len(chunk) {
+			// look for the header relatively to  searchOffset
+			headerPos := bytes.Index(chunk[searchOffset:], sig)
+			if headerPos < 0 {
+				break // no more of this signature
 			}
-			// todo: process error
-			_ = storeJPEG(chunk[headerPos : tailPosition+2])
-			// base case for the recursion
-			processJPEG(chunk[tailPosition+2:])
+
+			// header's absolute position in the chunk
+			absHeaderPos := searchOffset + headerPos
+
+			// search tail starting from header
+			tailPos := bytes.Index(chunk[absHeaderPos:], JPEG_TAIL)
+			if tailPos < 0 {
+				break // tail not found, the file is beyond the chunk
+			}
+
+			absTailPos := absHeaderPos + tailPos
+
+			_ = storeJPEG(chunk[absHeaderPos : absTailPos+2])
+
+			// shift search after tail
+			searchOffset = absTailPos + 2
 		}
 	}
 }
