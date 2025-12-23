@@ -6,13 +6,26 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	"golang.org/x/sys/unix"
 )
 
-var fileCount atomic.Int32
+var (
+	fileCount atomic.Int32
+	seen      sync.Map
+)
 
+// fileSeq is a sequence of bytes bounded by the head's and tail's positions;
+// this sequence represents content of the file to be recoverd
+type fileSeq struct {
+	headPos, tailPos int64
+	data             []byte
+}
+
+// scan sequentially gets chunks of data from the device and sends
+// them one by one further on for processing
 func scan(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -73,19 +86,34 @@ func scan(path string) error {
 	return nil
 }
 
+// processJPEG
 func processJPEG(chunk []byte) {
-	// todo: multiple (JPEG) files in a chunk?
+	// no jpegs in given chunk
+	// but what if jpeg spawns 2 chunks?
+	if bytes.Index(chunk, JPEG_TAIL) < 0 {
+		return
+	}
+
 	for _, sig := range JPEG_SIGS {
-		if headPos := bytes.Index(chunk, sig); headPos >= 0 {
-			// todo: log error
-			_ = extractJPEG(chunk[headPos:])
-			break
+		headerPos := bytes.Index(chunk, sig)
+		if headerPos < 0 {
+			return
+		} else {
+			tailPosition := bytes.Index(chunk[headerPos:], JPEG_TAIL)
+			if tailPosition < 0 {
+				// todo: the tail in the next chunk?
+				return
+			}
+			// todo: process error
+			_ = storeJPEG(chunk[headerPos : tailPosition+2])
+			// base case for the recursion
+			processJPEG(chunk[tailPosition+2:])
 		}
 	}
 }
 
-// jpeg, one chunk for now; it's just a POC
-func extractJPEG(data []byte) error {
+// todo: use generics? make this function universal for extracting all file types?
+func storeJPEG(data []byte) error {
 	// todo: what if the target directory doesn't exist
 	num := fileCount.Add(1)
 	fCount := fmt.Sprintf("%d.%s", num, JPEG_EXT)
@@ -97,17 +125,7 @@ func extractJPEG(data []byte) error {
 	}
 	defer f.Close()
 
-	// search for jpeg tail
-	//if tailPosition := bytes.LastIndex(data, JPEG_TAIL); tailPosition < 0 {
-	if tailPosition := bytes.Index(data, JPEG_TAIL); tailPosition < 0 {
-		return nil
-	} else {
-		// tailPosition+2 - include the tail bytes themselves
-		_, err = f.Write(data[:tailPosition+2])
-		if err != nil {
-			return err
-		}
-	}
+	_, err = f.Write(data)
 
 	return nil
 }
