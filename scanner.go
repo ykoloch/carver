@@ -88,6 +88,7 @@ func scan(path string) error {
 
 // processJPEG
 func processJPEG(chunk []byte) {
+	usedTails := make(map[int]bool)
 	for _, sig := range JPEG_SIGS {
 		searchOffset := 0
 		for searchOffset < len(chunk) {
@@ -107,7 +108,11 @@ func processJPEG(chunk []byte) {
 			}
 
 			absTailPos := absHeaderPos + tailPos
-
+			if usedTails[absTailPos] {
+				searchOffset = absTailPos + 2
+				continue
+			}
+			usedTails[absTailPos] = true
 			_ = storeJPEG(chunk[absHeaderPos : absTailPos+2])
 
 			// shift search after tail
