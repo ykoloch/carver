@@ -135,6 +135,28 @@ func storeJPEG(data []byte) error {
 	defer f.Close()
 
 	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func storePNG(data []byte) error {
+	num := fileCount.Add(1)
+	fCount := fmt.Sprintf("%d.%s", num, PNG_EXT)
+	fName := filepath.Join(output, fCount)
+
+	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
