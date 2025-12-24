@@ -16,13 +16,6 @@ var (
 	fileCount atomic.Int32
 )
 
-// fileSeq is a sequence of bytes bounded by the head's and tail's positions;
-// this sequence represents content of the file to be recoverd
-//type fileSeq struct {
-//	headPos, tailPos int64
-//	data             []byte
-//}
-
 // scan sequentially gets chunks of data from the device and sends
 // them one by one further on for processing
 func scan(path string) error {
@@ -112,33 +105,12 @@ func processJPEG(chunk []byte, wg *sync.WaitGroup) {
 				continue
 			}
 			usedTails[absTailPos] = true
-			_ = storeJPEG(chunk[absHeaderPos : absTailPos+2])
+			_ = saveFile(chunk[absHeaderPos:absTailPos+2], JPEG_EXT)
 
 			// shift search after tail
 			searchOffset = absTailPos + 2
 		}
 	}
-}
-
-// todo: use generics? make this function universal for extracting all file types?
-func storeJPEG(data []byte) error {
-	// todo: what if the target directory doesn't exist
-	num := fileCount.Add(1)
-	fCount := fmt.Sprintf("%d.%s", num, JPEG_EXT)
-	fName := filepath.Join(output, fCount)
-
-	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(data)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func processPNG(chunk []byte, wg *sync.WaitGroup) {
@@ -157,15 +129,15 @@ func processPNG(chunk []byte, wg *sync.WaitGroup) {
 		}
 
 		absTailPos := absHeaderPos + tailPos
-		_ = storePNG(chunk[absHeaderPos : absTailPos+len(PNG_TAIL)])
+		_ = saveFile(chunk[absHeaderPos:absTailPos+len(PNG_TAIL)], PNG_EXT)
 
 		searchOffset = absTailPos + len(PNG_TAIL)
 	}
 }
 
-func storePNG(data []byte) error {
+func saveFile(data []byte, ext string) error {
 	num := fileCount.Add(1)
-	fCount := fmt.Sprintf("%d.%s", num, PNG_EXT)
+	fCount := fmt.Sprintf("%d.%s", num, ext)
 	fName := filepath.Join(output, fCount)
 
 	f, err := os.OpenFile(fName, os.O_CREATE|os.O_WRONLY, 0644)
