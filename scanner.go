@@ -14,19 +14,19 @@ import (
 
 var (
 	fileCount atomic.Int32
-	seen      sync.Map
 )
 
 // fileSeq is a sequence of bytes bounded by the head's and tail's positions;
 // this sequence represents content of the file to be recoverd
-type fileSeq struct {
-	headPos, tailPos int64
-	data             []byte
-}
+//type fileSeq struct {
+//	headPos, tailPos int64
+//	data             []byte
+//}
 
 // scan sequentially gets chunks of data from the device and sends
 // them one by one further on for processing
 func scan(path string) error {
+	wg := new(sync.WaitGroup)
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("can not open %v: %w", path, err)
@@ -72,22 +72,21 @@ func scan(path string) error {
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
 
-		// todo: multiple headers in the same chunk
 		// will work when we implement processing when the file spreads
 		// beyond current chunk
-		//headPos := offset + int64(headPosition)
 		// todo: goroutine, log error
-		processJPEG(buf)
-		// todo: process png, pdf etc.
-
+		wg.Add(2)
+		go processJPEG(buf, wg)
+		go processPNG(buf, wg)
+		wg.Wait()
 		offset += CHUNK_SIZE
 	}
-
 	return nil
 }
 
 // processJPEG
-func processJPEG(chunk []byte) {
+func processJPEG(chunk []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
 	usedTails := make(map[int]bool)
 	for _, sig := range JPEG_SIGS {
 		searchOffset := 0
@@ -104,7 +103,7 @@ func processJPEG(chunk []byte) {
 			// search tail starting from header
 			tailPos := bytes.Index(chunk[absHeaderPos:], JPEG_TAIL)
 			if tailPos < 0 {
-				break // tail not found, the file is beyond the chunk
+				break // tail not found, the file end is in the the chunk, rare
 			}
 
 			absTailPos := absHeaderPos + tailPos
@@ -140,6 +139,28 @@ func storeJPEG(data []byte) error {
 	}
 
 	return nil
+}
+
+func processPNG(chunk []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
+	searchOffset := 0
+	for searchOffset < len(chunk) {
+		headerPos := bytes.Index(chunk[searchOffset:], PNG_SIGNATURE)
+		if headerPos < 0 {
+			break
+		}
+		absHeaderPos := searchOffset + headerPos
+
+		tailPos := bytes.Index(chunk[absHeaderPos:], PNG_TAIL)
+		if tailPos < 0 {
+			break
+		}
+
+		absTailPos := absHeaderPos + tailPos
+		_ = storePNG(chunk[absHeaderPos : absTailPos+len(PNG_TAIL)])
+
+		searchOffset = absTailPos + len(PNG_TAIL)
+	}
 }
 
 func storePNG(data []byte) error {
