@@ -68,9 +68,10 @@ func scan(path string) error {
 		// will work when we implement processing when the file spreads
 		// beyond current chunk
 		// todo: goroutine, log error
-		wg.Add(2)
+		wg.Add(3)
 		go processJPEG(buf, wg)
 		go processPNG(buf, wg)
+		go processPDF(buf, wg)
 		wg.Wait()
 		offset += CHUNK_SIZE
 	}
@@ -101,11 +102,11 @@ func processJPEG(chunk []byte, wg *sync.WaitGroup) {
 
 			absTailPos := absHeaderPos + tailPos
 			if usedTails[absTailPos] {
-				searchOffset = absTailPos + 2
+				searchOffset = absTailPos + len(JPEG_TAIL)
 				continue
 			}
 			usedTails[absTailPos] = true
-			_ = saveFile(chunk[absHeaderPos:absTailPos+2], JPEG_EXT)
+			_ = saveFile(chunk[absHeaderPos:absTailPos+len(JPEG_TAIL)], JPEG_EXT)
 
 			// shift search after tail
 			searchOffset = absTailPos + 2
@@ -132,6 +133,28 @@ func processPNG(chunk []byte, wg *sync.WaitGroup) {
 		_ = saveFile(chunk[absHeaderPos:absTailPos+len(PNG_TAIL)], PNG_EXT)
 
 		searchOffset = absTailPos + len(PNG_TAIL)
+	}
+}
+
+func processPDF(chunk []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
+	searchOffset := 0
+	for searchOffset < len(chunk) {
+		headerPos := bytes.Index(chunk[searchOffset:], PDF_SIGNATURE)
+		if headerPos < 0 {
+			break
+		}
+		absHeaderPos := searchOffset + headerPos
+
+		tailPos := bytes.Index(chunk[absHeaderPos:], PDF_TAIL)
+		if tailPos < 0 {
+			break
+		}
+
+		absTailPos := absHeaderPos + tailPos
+		_ = saveFile(chunk[absHeaderPos:absTailPos+len(PDF_TAIL)], PDF_EXT)
+
+		searchOffset = absTailPos + len(PDF_TAIL)
 	}
 }
 
