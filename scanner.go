@@ -78,7 +78,6 @@ func scan(path string) error {
 	return nil
 }
 
-// processJPEG
 func processJPEG(chunk []byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 	usedTails := make(map[int]bool)

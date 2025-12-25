@@ -1,5 +1,12 @@
 package main
 
+type fileFormat struct {
+	headers [][]byte
+	header  []byte
+	tail    []byte
+	ext     string
+}
+
 var (
 	// JPEG signatures - different markers after FF D8
 	JPEG_JFIF  = []byte{0xFF, 0xD8, 0xFF, 0xE0} // most common - JFIF
@@ -24,4 +31,26 @@ var (
 
 	PDF_SIGNATURE = []byte{0x25, 0x50, 0x44, 0x46, 0x2d}
 	PDF_TAIL      = []byte{0x25, 0x25, 0x45, 0x4F, 0x46}
+
+	fileFormats []fileFormat
 )
+
+func (ft *fileFormat) hasMultipleHeaders() bool {
+	return len(ft.headers) > 0
+}
+
+func init() {
+	jpeg := fileFormat{
+		headers: JPEG_SIGS,
+		tail:    JPEG_TAIL,
+		ext:     JPEG_EXT,
+	}
+	fileFormats = append(fileFormats, jpeg)
+
+	png := fileFormat{
+		header: PNG_SIGNATURE,
+		tail:   PNG_TAIL,
+		ext:    PNG_EXT,
+	}
+	fileFormats = append(fileFormats, png)
+}
