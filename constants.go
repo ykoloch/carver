@@ -7,4 +7,8 @@ const (
 	JPEG_EXT           = "jpeg"
 	PNG_EXT            = "png"
 	PDF_EXT            = "pdf"
+	GIF_EXT            = "gif"
+	ZIP_EXT            = "zip"
+	MP4_EXT            = "mp4"
+	DOCX_EXT           = "docx"
 )

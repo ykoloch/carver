@@ -7,7 +7,6 @@ import (
 
 type fileFormat struct {
 	headers [][]byte
-	header  []byte
 	tail    []byte
 	ext     string
 }
@@ -37,38 +36,39 @@ var (
 	PDF_SIGNATURE = []byte{0x25, 0x50, 0x44, 0x46, 0x2d}
 	PDF_TAIL      = []byte{0x25, 0x25, 0x45, 0x4F, 0x46}
 
-	fileFormats []fileFormat
+	// GIF
+	GIF_SIGNATURE = []byte{0x47, 0x49, 0x46, 0x38} // GIF8 (87a or 89a)
+	GIF_TAIL      = []byte{0x00, 0x3B}             // ;
+
+	// ZIP
+	ZIP_SIGNATURE = []byte{0x50, 0x4B, 0x03, 0x04} // PK..
+	ZIP_TAIL      = []byte{0x50, 0x4B, 0x05, 0x06} // End of central directory
+
+	// MP4
+	MP4_SIGNATURE = []byte{0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70} // ....ftyp (common size)
+	MP4_TAIL      = []byte{}                                               // MP4 has no fixed tail, will need special handling
+
+	// DOCX (it's a ZIP file)
+	DOCX_SIGNATURE = []byte{0x50, 0x4B, 0x03, 0x04} // same as ZIP
+	DOCX_TAIL      = []byte{0x50, 0x4B, 0x05, 0x06}
 )
 
-func (ff *fileFormat) hasMultipleHeaders() bool {
-	return len(ff.headers) > 0
-}
+var fileFormats []fileFormat
 
 func init() {
-	jpeg := fileFormat{
-		headers: JPEG_SIGS,
-		tail:    JPEG_TAIL,
-		ext:     JPEG_EXT,
+	fileFormats = []fileFormat{
+		{headers: JPEG_SIGS, tail: JPEG_TAIL, ext: JPEG_EXT},
+		{headers: [][]byte{PNG_SIGNATURE}, tail: PNG_TAIL, ext: PNG_EXT},
+		{headers: [][]byte{PDF_SIGNATURE}, tail: PDF_TAIL, ext: PDF_EXT},
+		{headers: [][]byte{GIF_SIGNATURE}, tail: GIF_TAIL, ext: GIF_EXT},
+		{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT},
+		{headers: [][]byte{MP4_SIGNATURE}, tail: MP4_TAIL, ext: MP4_EXT},
+		{headers: [][]byte{DOCX_SIGNATURE}, tail: DOCX_TAIL, ext: DOCX_EXT},
 	}
-	fileFormats = append(fileFormats, jpeg)
-
-	png := fileFormat{
-		header: PNG_SIGNATURE,
-		tail:   PNG_TAIL,
-		ext:    PNG_EXT,
-	}
-	fileFormats = append(fileFormats, png)
-
-	pdf := fileFormat{
-		header: PDF_SIGNATURE,
-		tail:   PDF_TAIL,
-		ext:    PNG_EXT,
-	}
-	fileFormats = append(fileFormats, pdf)
 }
 
-// processMultiHeaded deals with file formats which have multiple headers/signatures
-func (ff *fileFormat) processLongHeaded(chunk []byte, wg *sync.WaitGroup) {
+// process analyzes chunks of data and extracts files
+func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 	usedTails := make(map[int]bool)
 	for _, sig := range ff.headers {
@@ -100,27 +100,5 @@ func (ff *fileFormat) processLongHeaded(chunk []byte, wg *sync.WaitGroup) {
 			// shift search after tail
 			searchOffset = absTailPos + len(ff.tail)
 		}
-	}
-}
-
-func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
-	defer wg.Done()
-	searchOffset := 0
-	for searchOffset < len(chunk) {
-		headerPos := bytes.Index(chunk[searchOffset:], ff.header)
-		if headerPos < 0 {
-			break
-		}
-		absHeaderPos := searchOffset + headerPos
-
-		tailPos := bytes.Index(chunk[absHeaderPos:], ff.tail)
-		if tailPos < 0 {
-			break
-		}
-
-		absTailPos := absHeaderPos + tailPos
-		_ = saveFile(chunk[absHeaderPos:absTailPos+len(ff.tail)], ff.ext)
-
-		searchOffset = absTailPos + len(ff.tail)
 	}
 }

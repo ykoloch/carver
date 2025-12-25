@@ -67,11 +67,8 @@ func scan(path string) error {
 		// todo: log error
 		wg.Add(len(fileFormats))
 		for _, ff := range fileFormats {
-			if ff.hasMultipleHeaders() {
-				go ff.processLongHeaded(buf, wg)
-			} else {
-				go ff.process(buf, wg)
-			}
+			go ff.process(buf, wg)
+
 		}
 		wg.Wait()
 
