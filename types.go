@@ -1,5 +1,10 @@
 package main
 
+import (
+	"bytes"
+	"sync"
+)
+
 type fileFormat struct {
 	headers [][]byte
 	header  []byte
@@ -35,8 +40,8 @@ var (
 	fileFormats []fileFormat
 )
 
-func (ft *fileFormat) hasMultipleHeaders() bool {
-	return len(ft.headers) > 0
+func (ff *fileFormat) hasMultipleHeaders() bool {
+	return len(ff.headers) > 0
 }
 
 func init() {
@@ -53,4 +58,69 @@ func init() {
 		ext:    PNG_EXT,
 	}
 	fileFormats = append(fileFormats, png)
+
+	pdf := fileFormat{
+		header: PDF_SIGNATURE,
+		tail:   PDF_TAIL,
+		ext:    PNG_EXT,
+	}
+	fileFormats = append(fileFormats, pdf)
+}
+
+// processMultiHeaded deals with file formats which have multiple headers/signatures
+func (ff *fileFormat) processLongHeaded(chunk []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
+	usedTails := make(map[int]bool)
+	for _, sig := range ff.headers {
+		searchOffset := 0
+		for searchOffset < len(chunk) {
+			// look for the header relatively to  searchOffset
+			headerPos := bytes.Index(chunk[searchOffset:], sig)
+			if headerPos < 0 {
+				break // no more of this signature
+			}
+
+			// header's absolute position in the chunk
+			absHeaderPos := searchOffset + headerPos
+
+			// search tail starting from header
+			tailPos := bytes.Index(chunk[absHeaderPos:], ff.tail)
+			if tailPos < 0 {
+				break // tail not found, the file end is in the the chunk, rare
+			}
+
+			absTailPos := absHeaderPos + tailPos
+			if usedTails[absTailPos] {
+				searchOffset = absTailPos + len(ff.tail)
+				continue
+			}
+			usedTails[absTailPos] = true
+			_ = saveFile(chunk[absHeaderPos:absTailPos+len(ff.tail)], ff.ext)
+
+			// shift search after tail
+			searchOffset = absTailPos + len(ff.tail)
+		}
+	}
+}
+
+func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
+	searchOffset := 0
+	for searchOffset < len(chunk) {
+		headerPos := bytes.Index(chunk[searchOffset:], ff.header)
+		if headerPos < 0 {
+			break
+		}
+		absHeaderPos := searchOffset + headerPos
+
+		tailPos := bytes.Index(chunk[absHeaderPos:], ff.tail)
+		if tailPos < 0 {
+			break
+		}
+
+		absTailPos := absHeaderPos + tailPos
+		_ = saveFile(chunk[absHeaderPos:absTailPos+len(ff.tail)], ff.ext)
+
+		searchOffset = absTailPos + len(ff.tail)
+	}
 }

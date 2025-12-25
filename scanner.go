@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -76,85 +75,6 @@ func scan(path string) error {
 		offset += CHUNK_SIZE
 	}
 	return nil
-}
-
-func processJPEG(chunk []byte, wg *sync.WaitGroup) {
-	defer wg.Done()
-	usedTails := make(map[int]bool)
-	for _, sig := range JPEG_SIGS {
-		searchOffset := 0
-		for searchOffset < len(chunk) {
-			// look for the header relatively to  searchOffset
-			headerPos := bytes.Index(chunk[searchOffset:], sig)
-			if headerPos < 0 {
-				break // no more of this signature
-			}
-
-			// header's absolute position in the chunk
-			absHeaderPos := searchOffset + headerPos
-
-			// search tail starting from header
-			tailPos := bytes.Index(chunk[absHeaderPos:], JPEG_TAIL)
-			if tailPos < 0 {
-				break // tail not found, the file end is in the the chunk, rare
-			}
-
-			absTailPos := absHeaderPos + tailPos
-			if usedTails[absTailPos] {
-				searchOffset = absTailPos + len(JPEG_TAIL)
-				continue
-			}
-			usedTails[absTailPos] = true
-			_ = saveFile(chunk[absHeaderPos:absTailPos+len(JPEG_TAIL)], JPEG_EXT)
-
-			// shift search after tail
-			searchOffset = absTailPos + 2
-		}
-	}
-}
-
-func processPNG(chunk []byte, wg *sync.WaitGroup) {
-	defer wg.Done()
-	searchOffset := 0
-	for searchOffset < len(chunk) {
-		headerPos := bytes.Index(chunk[searchOffset:], PNG_SIGNATURE)
-		if headerPos < 0 {
-			break
-		}
-		absHeaderPos := searchOffset + headerPos
-
-		tailPos := bytes.Index(chunk[absHeaderPos:], PNG_TAIL)
-		if tailPos < 0 {
-			break
-		}
-
-		absTailPos := absHeaderPos + tailPos
-		_ = saveFile(chunk[absHeaderPos:absTailPos+len(PNG_TAIL)], PNG_EXT)
-
-		searchOffset = absTailPos + len(PNG_TAIL)
-	}
-}
-
-func processPDF(chunk []byte, wg *sync.WaitGroup) {
-	defer wg.Done()
-	searchOffset := 0
-	for searchOffset < len(chunk) {
-		headerPos := bytes.Index(chunk[searchOffset:], PDF_SIGNATURE)
-		if headerPos < 0 {
-			break
-		}
-		absHeaderPos := searchOffset + headerPos
-
-		tailPos := bytes.Index(chunk[absHeaderPos:], PDF_TAIL)
-		if tailPos < 0 {
-			break
-		}
-
-		absTailPos := absHeaderPos + tailPos
-		_ = saveFile(chunk[absHeaderPos:absTailPos+len(PDF_TAIL)], PDF_EXT)
-
-		searchOffset = absTailPos + len(PDF_TAIL)
-	}
 }
 
 func saveFile(data []byte, ext string) error {
