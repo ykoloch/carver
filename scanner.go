@@ -64,14 +64,17 @@ func scan(path string) error {
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
 
-		// will work when we implement processing when the file spreads
-		// beyond current chunk
-		// todo: goroutine, log error
-		wg.Add(3)
-		go processJPEG(buf, wg)
-		go processPNG(buf, wg)
-		go processPDF(buf, wg)
+		// todo: log error
+		wg.Add(len(fileFormats))
+		for _, ff := range fileFormats {
+			if ff.hasMultipleHeaders() {
+				go ff.processLongHeaded(buf, wg)
+			} else {
+				go ff.process(buf, wg)
+			}
+		}
 		wg.Wait()
+
 		offset += CHUNK_SIZE
 	}
 	return nil
