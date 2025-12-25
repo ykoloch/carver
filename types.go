@@ -2,13 +2,16 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"sync"
 )
 
 type fileFormat struct {
-	headers [][]byte
-	tail    []byte
-	ext     string
+	headers      [][]byte
+	tail         []byte
+	ext          string
+	hasVarTail   bool
+	calcTailSize func(chunk []byte, tailPos int) int
 }
 
 var (
@@ -55,13 +58,24 @@ var (
 
 var fileFormats []fileFormat
 
+// calcZIPTailLenc
+func calcZIPTailLen(chunk []byte, tailPos int) int {
+	// check if the tail fits chunk
+	if tailPos+22 > len(chunk) {
+		return -1
+	}
+	restTailLen := binary.LittleEndian.Uint16(chunk[tailPos+20 : tailPos+22])
+	// return EOCD + full comment
+	return 22 + int(restTailLen)
+}
+
 func init() {
 	fileFormats = []fileFormat{
 		{headers: JPEG_SIGS, tail: JPEG_TAIL, ext: JPEG_EXT},
 		{headers: [][]byte{PNG_SIGNATURE}, tail: PNG_TAIL, ext: PNG_EXT},
 		{headers: [][]byte{PDF_SIGNATURE}, tail: PDF_TAIL, ext: PDF_EXT},
 		{headers: [][]byte{GIF_SIGNATURE}, tail: GIF_TAIL, ext: GIF_EXT},
-		{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT},
+		{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT, hasVarTail: true, calcTailSize: calcZIPTailLen},
 		//{headers: [][]byte{MP4_SIGNATURE}, tail: MP4_TAIL, ext: MP4_EXT},
 		//{headers: [][]byte{DOCX_SIGNATURE}, tail: DOCX_TAIL, ext: DOCX_EXT},
 	}
@@ -90,15 +104,25 @@ func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
 			}
 
 			absTailPos := absHeaderPos + tailPos
+			var tailSize int
+			if ff.hasVarTail {
+				tailSize = ff.calcTailSize(chunk, absTailPos)
+				if tailSize < 0 {
+					break // tail goes beyond chunk boundaries
+				}
+			} else {
+				tailSize = len(ff.tail)
+			}
+
 			if usedTails[absTailPos] {
-				searchOffset = absTailPos + len(ff.tail)
+				searchOffset = absTailPos + tailSize
 				continue
 			}
 			usedTails[absTailPos] = true
-			_ = saveFile(chunk[absHeaderPos:absTailPos+len(ff.tail)], ff.ext)
+			_ = saveFile(chunk[absHeaderPos:absTailPos+tailSize], ff.ext)
 
 			// shift search after tail
-			searchOffset = absTailPos + len(ff.tail)
+			searchOffset = absTailPos + tailSize
 		}
 	}
 }
