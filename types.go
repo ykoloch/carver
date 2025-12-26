@@ -73,7 +73,6 @@ func init() {
 		{headers: [][]byte{PDF_SIGNATURE}, tail: PDF_TAIL, ext: PDF_EXT},
 		{headers: [][]byte{GIF_SIGNATURE}, tail: GIF_TAIL, ext: GIF_EXT},
 		{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT, hasVarTail: true, calcTailSize: calcZIPTailLen},
-		//{headers: [][]byte{MP4_SIGNATURE}, tail: MP4_TAIL, ext: MP4_EXT},
 	}
 }
 
