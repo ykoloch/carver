@@ -1,0 +1,37 @@
+stages:
+  - lint
+  - build
+
+variables:
+  GO_VERSION: "1.23"
+
+lint:
+  stage: lint
+  image: golangci/golangci-lint:latest
+  script:
+    - golangci-lint run -v
+  allow_failure: false
+
+build:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - go build -o carver
+  artifacts:
+    paths:
+      - carver
+    expire_in: 1 day
+
+release:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o carver-linux-amd64
+    - GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o carver-linux-arm64
+    - GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o carver-darwin-amd64
+    - GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o carver-darwin-arm64
+  artifacts:
+    paths:
+      - carver-*
+  only:
+    - tags
