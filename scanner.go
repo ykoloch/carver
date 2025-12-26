@@ -44,11 +44,15 @@ func scan(path string) error {
 			}
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
+		percent := float64(offset) / float64(devSize) * 100
+		fmt.Printf("\r\033[32mProgress:\033[0m %.1f%% (%d / %d MB )",
+			percent,
+			offset/(1<<20),
+			devSize/(1<<20))
 
 		wg.Add(len(fileFormats))
 		for _, ff := range fileFormats {
 			go ff.process(buf, wg)
-
 		}
 		wg.Wait()
 
