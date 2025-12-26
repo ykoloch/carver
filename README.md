@@ -120,11 +120,6 @@ Done! Recovered 847 files
 
 MIT
 
-## Author
-
-Built by [Yurii](https://linkedin.com/in/your-profile) - Ukrainian military medical officer in ZSU, 8+ years Go developer.
-
-Created during leave to maintain coding skills and build something useful for data recovery scenarios.
 
 ---
 
