@@ -72,6 +72,7 @@ func saveFile(data []byte, ext string) error {
 	if err != nil {
 		return err
 	}
+	_, _ = fmt.Printf("\033[32msaved:\033[0m %s (%d bytes)\n", fCount, len(data))
 
 	return nil
 }
