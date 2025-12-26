@@ -28,8 +28,6 @@ release:
   script:
     - GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o carver-linux-amd64
     - GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o carver-linux-arm64
-    - GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o carver-darwin-amd64
-    - GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w" -o carver-darwin-arm64
   artifacts:
     paths:
       - carver-*
