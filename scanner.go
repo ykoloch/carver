@@ -45,7 +45,7 @@ func scan(path string) error {
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
 		percent := float64(offset) / float64(devSize) * 100
-		fmt.Printf("\r\033[32mProgress:\033[0m %.1f%% (%d / %d MB )",
+		fmt.Printf("\r\033[34mProgress:\033[0m %.1f%% (%d / %d MB)",
 			percent,
 			offset/(1<<20),
 			devSize/(1<<20))
@@ -58,6 +58,7 @@ func scan(path string) error {
 
 		offset += CHUNK_SIZE
 	}
+	fmt.Printf("\n\033[32mDone!\033[0m Recovered %d files\n", fileCount.Load())
 	return nil
 }
 
@@ -76,7 +77,6 @@ func saveFile(data []byte, ext string) error {
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Printf("\033[32msaved:\033[0m %s (%d bytes)\n", fCount, len(data))
 
 	return nil
 }
