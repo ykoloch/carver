@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"os"
 	"sync"
 )
 
@@ -32,7 +34,6 @@ var (
 
 	JPEG_TAIL = []byte{0xFF, 0xD9}
 
-	//PNG_SIGNATURE = []byte{0x89, 0x50, 0x4E, 0x47}
 	PNG_SIGNATURE = []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
 	PNG_TAIL      = []byte{0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82}
 
@@ -50,10 +51,6 @@ var (
 	// MP4
 	MP4_SIGNATURE = []byte{0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70} // ....ftyp (common size)
 	MP4_TAIL      = []byte{}                                               // MP4 has no fixed tail, will need special handling
-
-	// DOCX (it's a ZIP file)
-	DOCX_SIGNATURE = []byte{0x50, 0x4B, 0x03, 0x04} // same as ZIP
-	DOCX_TAIL      = []byte{0x50, 0x4B, 0x05, 0x06}
 )
 
 var fileFormats []fileFormat
@@ -77,7 +74,6 @@ func init() {
 		{headers: [][]byte{GIF_SIGNATURE}, tail: GIF_TAIL, ext: GIF_EXT},
 		{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT, hasVarTail: true, calcTailSize: calcZIPTailLen},
 		//{headers: [][]byte{MP4_SIGNATURE}, tail: MP4_TAIL, ext: MP4_EXT},
-		//{headers: [][]byte{DOCX_SIGNATURE}, tail: DOCX_TAIL, ext: DOCX_EXT},
 	}
 }
 
@@ -119,7 +115,9 @@ func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
 				continue
 			}
 			usedTails[absTailPos] = true
-			_ = saveFile(chunk[absHeaderPos:absTailPos+tailSize], ff.ext)
+			if err := saveFile(chunk[absHeaderPos:absTailPos+tailSize], ff.ext); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "failed to save file %s: %v\n", ff.ext, err)
+			}
 
 			// shift search after tail
 			searchOffset = absTailPos + tailSize

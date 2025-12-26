@@ -8,12 +8,10 @@ import (
 
 var (
 	device, output string
-	verbose        bool
 )
 
 func main() {
 	flag.StringVar(&output, "output", DEFAULT_OUTPUT_DIR, "path to the output directory")
-	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 	flag.StringVar(&device, "device", "", "path to the device to be scanned")
 
 	flag.Usage = func() {
@@ -31,8 +29,14 @@ func main() {
 		os.Exit(-1)
 	}
 
+	err := os.MkdirAll(output, 0755)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "can not create output directory %s: %v\n", output, err)
+		os.Exit(-1)
+	}
+
 	if err := scan(device); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(-1)
 	}
 }

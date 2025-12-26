@@ -31,24 +31,6 @@ func scan(path string) error {
 		return fmt.Errorf("can not get size of %v: %w", path, err)
 	}
 	devSize := blocks * SECTOR_SIZE
-	println("the device size is", devSize, "bytes")
-
-	// it's just a babystep just to check if we can work with
-	// the data accessed
-	startData, err := checkDevice(f)
-	if err != nil {
-		return fmt.Errorf("can not read the device %v: %w", f.Name(), err)
-	}
-
-	if verbose {
-		fmt.Println("initial data read:")
-		for i, b := range startData {
-			fmt.Printf("%02X ", b)
-			if (i+1)%16 == 0 {
-				fmt.Println()
-			}
-		}
-	}
 
 	sr := io.NewSectionReader(f, 0, int64(devSize))
 	buf := make([]byte, CHUNK_SIZE)
@@ -58,13 +40,11 @@ func scan(path string) error {
 		_, err := sr.ReadAt(buf, offset)
 		if err != nil {
 			if err == io.EOF {
-				println("##### EOF")
 				break
 			}
 			return fmt.Errorf("can not read chunk %d: %w", offset, err)
 		}
 
-		// todo: log error
 		wg.Add(len(fileFormats))
 		for _, ff := range fileFormats {
 			go ff.process(buf, wg)
