@@ -23,7 +23,7 @@ func scan(path string) error {
 	if err != nil {
 		return fmt.Errorf("can not open %v: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// get number of device's blocks
 	blocks, err := unix.IoctlGetInt(int(f.Fd()), unix.BLKGETSIZE)
@@ -71,7 +71,11 @@ func saveFile(data []byte, ext string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to close file: %v\n", closeErr)
+		}
+	}()
 
 	_, err = f.Write(data)
 	if err != nil {
