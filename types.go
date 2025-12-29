@@ -55,7 +55,7 @@ var (
 
 var fileFormats []fileFormat
 
-// calcZIPTailLenc
+// calcZIPTailLen calculates variable-length ZIP EOCD size
 func calcZIPTailLen(chunk []byte, tailPos int) int {
 	// check if the tail fits chunk
 	if tailPos+22 > len(chunk) {
@@ -66,13 +66,24 @@ func calcZIPTailLen(chunk []byte, tailPos int) int {
 	return 22 + int(restTailLen)
 }
 
-func init() {
-	fileFormats = []fileFormat{
-		{headers: JPEG_SIGS, tail: JPEG_TAIL, ext: JPEG_EXT},
-		{headers: [][]byte{PNG_SIGNATURE}, tail: PNG_TAIL, ext: PNG_EXT},
-		{headers: [][]byte{PDF_SIGNATURE}, tail: PDF_TAIL, ext: PDF_EXT},
-		{headers: [][]byte{GIF_SIGNATURE}, tail: GIF_TAIL, ext: GIF_EXT},
-		{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT, hasVarTail: true, calcTailSize: calcZIPTailLen},
+// initFileFormats initializes file formats based on command-line flags
+func initFileFormats() {
+	fileFormats = []fileFormat{}
+
+	if enableJPEG {
+		fileFormats = append(fileFormats, fileFormat{headers: JPEG_SIGS, tail: JPEG_TAIL, ext: JPEG_EXT})
+	}
+	if enablePNG {
+		fileFormats = append(fileFormats, fileFormat{headers: [][]byte{PNG_SIGNATURE}, tail: PNG_TAIL, ext: PNG_EXT})
+	}
+	if enablePDF {
+		fileFormats = append(fileFormats, fileFormat{headers: [][]byte{PDF_SIGNATURE}, tail: PDF_TAIL, ext: PDF_EXT})
+	}
+	if enableGIF {
+		fileFormats = append(fileFormats, fileFormat{headers: [][]byte{GIF_SIGNATURE}, tail: GIF_TAIL, ext: GIF_EXT})
+	}
+	if enableZIP {
+		fileFormats = append(fileFormats, fileFormat{headers: [][]byte{ZIP_SIGNATURE}, tail: ZIP_TAIL, ext: ZIP_EXT, hasVarTail: true, calcTailSize: calcZIPTailLen})
 	}
 }
 
@@ -83,7 +94,7 @@ func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
 	for _, sig := range ff.headers {
 		searchOffset := 0
 		for searchOffset < len(chunk) {
-			// look for the header relatively to  searchOffset
+			// look for the header relatively to searchOffset
 			headerPos := bytes.Index(chunk[searchOffset:], sig)
 			if headerPos < 0 {
 				break // no more of this signature
@@ -95,7 +106,7 @@ func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
 			// search tail starting from header
 			tailPos := bytes.Index(chunk[absHeaderPos:], ff.tail)
 			if tailPos < 0 {
-				break // tail not found, the file end is in the the chunk, rare
+				break // tail not found, the file end is in the chunk, rare
 			}
 
 			absTailPos := absHeaderPos + tailPos
@@ -115,7 +126,7 @@ func (ff *fileFormat) process(chunk []byte, wg *sync.WaitGroup) {
 			}
 			usedTails[absTailPos] = true
 			if err := saveFile(chunk[absHeaderPos:absTailPos+tailSize], ff.ext); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "failed to save file %s: %v\n", ff.ext, err)
+				fmt.Fprintf(os.Stderr, "failed to save file %s: %v\n", ff.ext, err)
 			}
 
 			// shift search after tail
