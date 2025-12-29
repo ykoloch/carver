@@ -1,126 +1,95 @@
-# Carver 🔍
+# carver
 
-File recovery tool that scans raw storage devices (disks, flash drives, SD cards) and recovers deleted files by searching for file signatures (magic bytes).
+File recovery tool. Scans raw storage devices and extracts deleted files by signature matching.
 
-## Why?
+## implementation
 
-Sometimes you accidentally delete files, format a drive, or deal with corrupted filesystems. Traditional recovery tools are either expensive, bloated, or require GUIs. Carver is:
+- concurrent chunk processing with goroutines
+- 64MB buffer size
+- signature-based file boundary detection
+- variable-length structure parsing (ZIP EOCD)
 
-- **Simple** - just 2 flags, does one thing well
-- **Fast** - concurrent scanning with Go goroutines
-- **Portable** - single binary, no dependencies
-- **Transparent** - shows progress and tells you what it finds
+## supported formats
 
-Built during military leave to keep coding skills sharp. Turned out pretty useful.
+| format | header | tail | notes |
+|--------|--------|------|-------|
+| jpeg | `FF D8 FF` | `FF D9` | 5 signature variants (JFIF, EXIF, Huffman, Quantization, SOF) |
+| png | `89 50 4E 47 0D 0A 1A 0A` | `49 45 4E 44 AE 42 60 82` | full 8-byte validation |
+| pdf | `25 50 44 46 2D` | `25 25 45 4F 46` | |
+| gif | `47 49 46 38` | `00 3B` | GIF87a and GIF89a |
+| zip | `50 4B 03 04` | `50 4B 05 06` | EOCD comment field parsing |
 
-## Supported File Formats
+note: DOCX/XLSX/PPTX share ZIP signature. use `file` command for differentiation.
 
-- **JPEG** - supports all common signatures (JFIF, EXIF, Huffman-first, etc.)
-- **PNG** - full 8-byte signature validation
-- **PDF** - finds document boundaries
-- **GIF** - both GIF87a and GIF89a
-- **ZIP** - includes variable-length EOCD parsing
+## usage
 
-### Why are DOCX and XLSX saved as ZIP?
-
-Modern Microsoft Office formats (DOCX, XLSX, PPTX) are actually **ZIP archives** with XML inside. They share the same signature: `50 4B 03 04`.
-
-Currently, Carver saves all of them with `.zip` extension. You can identify the real type using:
 ```bash
-file *.zip
+# recover all formats
+sudo ./carver -device /dev/sdb1 -output ./recovered
+
+# specific formats only
+sudo ./carver -device /dev/sdb1 -jpeg -png
+
+# disk image
+./carver -device ./disk.img
 ```
 
-Output:
+## flags
+
 ```
-1.zip: Microsoft Word 2007+
-2.zip: Zip archive data
-3.zip: Microsoft Excel 2007+
+-device string
+    path to device or image file (required)
+-output string
+    output directory (default "./recovered")
+-jpeg
+    recover JPEG files
+-png
+    recover PNG files
+-pdf
+    recover PDF files
+-gif
+    recover GIF files
+-zip
+    recover ZIP/DOCX/XLSX files
 ```
 
-Adding separate DOCX/XLSX detection is planned, but for now - this works.
+if no format flags specified, all formats are enabled.
 
-## Installation
+## build
+
 ```bash
-git clone <your-gitlab-url>
+git clone <repo>
 cd carver
 go build
 ```
 
-Binary will be in current directory: `./carver`
+requirements: Go 1.21+, Linux (uses `unix.BLKGETSIZE` ioctl)
 
-## Usage
-```bash
-# Recover files from USB drive
-sudo ./carver -device /dev/sdb1 -output ./recovered
+## algorithm
 
-# Use default output directory (./recovered)
-sudo ./carver -device /dev/sdc1
+1. read device in 64MB chunks via `io.SectionReader`
+2. spawn goroutine per file format
+3. search for header signatures using `bytes.Index`
+4. locate corresponding tail marker
+5. extract data slice: `chunk[header:tail+tailSize]`
+6. write to disk with sequential naming
 
-# Scan disk image file
-./carver -device ./disk.img -output ./found
-```
+## limitations
 
-### Flags
+- fragmented files not supported
+- files spanning chunk boundaries not recovered (edge case)
+- no metadata preservation (filenames, timestamps)
+- Linux only (block device ioctl)
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `-device` | *(required)* | Path to device or image file to scan |
-| `-output` | `./recovered` | Directory for recovered files |
+## output
 
-### Output
-
-Files are saved as: `1.jpeg`, `2.png`, `3.zip`, etc.
-
-Progress indicator shows:
 ```
 Progress: 42.3% (3200 / 7644 MB)
-```
-
-Final summary:
-```
 Done! Recovered 847 files
 ```
 
-## How It Works
+files: `1.jpeg`, `2.png`, `3.zip`, etc.
 
-1. **Reads device in 64MB chunks** - efficient for large drives
-2. **Searches for file signatures** - e.g., JPEG starts with `FF D8 FF`
-3. **Finds file boundaries** - looks for end-of-file markers
-4. **Extracts complete files** - saves header → tail
-5. **Handles edge cases** - variable-length structures (ZIP EOCD), multiple signatures (JPEG), deduplication
-
-### Technical Details
-
-- **Concurrent scanning** - each file format processed in parallel
-- **Deduplication** - won't save the same file twice (e.g., JPEG with 5 different signatures)
-- **Smart tail parsing** - ZIP End of Central Directory includes comment length field
-
-## Limitations
-
-- **Files spanning chunks** - if file is split across 64MB boundary, won't recover (rare)
-- **Fragmented files** - only works for contiguous files
-- **No filesystem metadata** - recovered files lose original names/timestamps
-- **Linux-specific** - uses `unix.BLKGETSIZE` ioctl (PRs for Windows/macOS welcome)
-
-## Requirements
-
-- Go 1.21+
-- Linux (for block device access)
-- `sudo` for reading raw devices
-
-## Roadmap
-
-- [ ] MP4 video recovery (no fixed tail signature)
-- [ ] DOCX/XLSX type detection (ZIP subformat analysis)
-- [ ] Cross-platform support (Windows, macOS)
-- [ ] Verbose mode with per-file logging
-- [ ] Statistics (files by type, success rate)
-
-## License
+## license
 
 MIT
-
-
----
-
-**⚠️ Warning:** Always work on copies or unmounted devices to avoid further data loss.
